@@ -49,22 +49,7 @@ uint8_t sineLUT[] = {128, 152, 176, 199, 218, 234, 246, 253,
                      0, 2, 9, 21, 37, 56, 79, 103};
 
 void setup()
-{
-    cli();
-
-    // TIMER1: Drives the PWM at 62.5KHz
-    TCCR1A = (1 << WGM10) | (1 << COM1A1);
-    TCCR1B = (1 << WGM12) | (1 << CS10); // Prescaler /1
-    TIMSK1 = (1 << TOIE1);               // Enable overflow
-
-    // TIMER2 drives the DDS at 16KHz
-    TCCR2A = 0;
-    TCCR2B = (1 << CS21);   // Prescaler /8
-    OCR2A = DDSTMRCOUNT;    // 16KHz DDS Clock
-    TIMSK2 = (1 << OCIE2A); // Enable Timer2 OCR2A interrupt
-
-    sei();
-
+{  
     pinMode(PIN_DDS_OUT, OUTPUT);
 
     Serial.begin(115400);
@@ -85,6 +70,33 @@ ISR(TIMER1_OVF_vect)
     OCR1A = pwmAmplitude; // Output to PWM
 }
 
+void startDTMFTone(uint8_t toneNumber) {
+    freqControlA = 2 * dtmfHi[toneNumber];
+    freqControlB = 2 * dtmfLo[toneNumber];
+        
+    cli();
+
+    // TIMER1: Drives the PWM at 62.5KHz
+    TCCR1A = (1 << WGM10) | (1 << COM1A1);
+    TCCR1B = (1 << WGM12) | (1 << CS10); // Prescaler /1
+    TIMSK1 = (1 << TOIE1);               // Enable overflow
+
+    // TIMER2 drives the DDS at 16KHz
+    TCCR2A = 0;
+    TCCR2B = (1 << CS21);   // Prescaler /8
+    OCR2A = DDSTMRCOUNT;    // 16KHz DDS Clock
+    TIMSK2 = (1 << OCIE2A); // Enable Timer2 OCR2A interrupt
+
+    sei();      
+}
+
+void stopDTMFTone() {
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCCR2A = 0;
+  TCCR1B = 0;
+}
+
 void loop()
 {
     uint8_t keyPressed = Serial.read();
@@ -92,13 +104,11 @@ void loop()
     if (keyPressed >= '0' && keyPressed <= '9')
     {
         keyPressed = keyPressed - '0';
-        
-        freqControlA = 2 * dtmfHi[keyPressed];
-        freqControlB = 2 * dtmfLo[keyPressed];
-        
+
+        startDTMFTone(keyPressed);        
         delay(200);
+        stopDTMFTone();
         
-        freqControlA = 0;
-        freqControlB = 0;       
     }
+  
 }
